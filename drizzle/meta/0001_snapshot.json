@@ -1,0 +1,128 @@
+{
+  "id": "a9e740a7-06d7-481b-b06f-cb5a6fd12ef3",
+  "prevId": "4991728d-4922-46b8-ac46-8bdbe80486ac",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.expenses": {
+      "name": "expenses",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "uuid", "primaryKey": true, "notNull": true, "default": "gen_random_uuid()" },
+        "user_id": { "name": "user_id", "type": "uuid", "primaryKey": false, "notNull": true },
+        "description": { "name": "description", "type": "varchar(160)", "primaryKey": false, "notNull": true },
+        "category": { "name": "category", "type": "varchar(40)", "primaryKey": false, "notNull": true },
+        "amount": { "name": "amount", "type": "numeric(12, 2)", "primaryKey": false, "notNull": true },
+        "spent_on": { "name": "spent_on", "type": "date", "primaryKey": false, "notNull": true },
+        "created_at": { "name": "created_at", "type": "timestamp with time zone", "primaryKey": false, "notNull": true, "default": "now()" }
+      },
+      "indexes": {
+        "expenses_user_spent_on_idx": {
+          "name": "expenses_user_spent_on_idx",
+          "columns": [
+            { "expression": "user_id", "isExpression": false, "asc": true, "nulls": "last" },
+            { "expression": "spent_on", "isExpression": false, "asc": true, "nulls": "last" }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "expenses_user_id_users_id_fk": {
+          "name": "expenses_user_id_users_id_fk",
+          "tableFrom": "expenses",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRlsEnabled": false
+    },
+    "public.refresh_sessions": {
+      "name": "refresh_sessions",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "uuid", "primaryKey": true, "notNull": true },
+        "family_id": { "name": "family_id", "type": "uuid", "primaryKey": false, "notNull": true },
+        "user_id": { "name": "user_id", "type": "uuid", "primaryKey": false, "notNull": true },
+        "expires_at": { "name": "expires_at", "type": "timestamp with time zone", "primaryKey": false, "notNull": true },
+        "revoked_at": { "name": "revoked_at", "type": "timestamp with time zone", "primaryKey": false, "notNull": false },
+        "created_at": { "name": "created_at", "type": "timestamp with time zone", "primaryKey": false, "notNull": true, "default": "now()" }
+      },
+      "indexes": {
+        "refresh_sessions_user_id_idx": {
+          "name": "refresh_sessions_user_id_idx",
+          "columns": [{ "expression": "user_id", "isExpression": false, "asc": true, "nulls": "last" }],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "refresh_sessions_family_id_idx": {
+          "name": "refresh_sessions_family_id_idx",
+          "columns": [{ "expression": "family_id", "isExpression": false, "asc": true, "nulls": "last" }],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "refresh_sessions_user_id_users_id_fk": {
+          "name": "refresh_sessions_user_id_users_id_fk",
+          "tableFrom": "refresh_sessions",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRlsEnabled": false
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "uuid", "primaryKey": true, "notNull": true, "default": "gen_random_uuid()" },
+        "name": { "name": "name", "type": "varchar(120)", "primaryKey": false, "notNull": true },
+        "email": { "name": "email", "type": "varchar(255)", "primaryKey": false, "notNull": true },
+        "password_hash": { "name": "password_hash", "type": "text", "primaryKey": false, "notNull": true },
+        "currency": { "name": "currency", "type": "varchar(3)", "primaryKey": false, "notNull": true, "default": "'INR'" },
+        "created_at": { "name": "created_at", "type": "timestamp with time zone", "primaryKey": false, "notNull": true, "default": "now()" }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": ["email"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRlsEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": { "columns": {}, "schemas": {}, "tables": {} }
+}
