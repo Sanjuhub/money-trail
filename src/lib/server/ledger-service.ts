@@ -5,17 +5,18 @@ import { db } from "@/lib/db";
 import { accounts, alerts, budgets, categories, receipts, tags, transactionSplits, transactionTags, transactions } from "@/lib/db/schema";
 import { deleteReceipt } from "@/lib/server/receipt-storage";
 import { formatMoney } from "@/lib/currency";
+import { accountBalance, previousMonthStart, splitsMatchAmount } from "@/lib/finance";
 import { users } from "@/lib/db/schema";
 
 const splitSchema = z.array(z.object({ label: z.string().trim().min(1).max(100), amount: z.coerce.number().positive(), isMine: z.boolean().default(false) })).max(30).optional();
 export const transactionInput = z.object({
   type: z.enum(["expense", "income", "transfer"]).default("expense"),
   description: z.string().trim().min(1).max(160), merchant: z.string().trim().max(120).optional().nullable(),
-  category: z.string().trim().min(1).max(60).default("Other"), amount: z.coerce.number().positive().finite().max(999999999999),
+  category: z.string().trim().min(1).max(60).default("Other"), categoryId: z.uuid().optional().nullable(), amount: z.coerce.number().positive().finite().max(999999999999),
   transactionDate: z.iso.date(), notes: z.string().max(2000).optional().nullable(),
   paymentMethod: z.enum(["cash", "upi", "card", "bank", "wallet"]).default("cash"),
   accountId: z.uuid().optional().nullable(), toAccountId: z.uuid().optional().nullable(),
-  tags: z.array(z.string().trim().min(1).max(40)).max(12).default([]), splits: splitSchema,
+  tags: z.array(z.string().trim().min(1).max(40)).max(12).optional(), splits: splitSchema,
 });
 export type TransactionInput = z.infer<typeof transactionInput>;
 
@@ -25,7 +26,7 @@ async function ownedAccount(userId: string, id?: string | null) {
   return account ?? null;
 }
 
-export async function listTransactions(userId: string, filters: { q?: string; type?: string; category?: string; from?: string; to?: string }) {
+export async function listTransactions(userId: string, filters: { q?: string; type?: string; category?: string; from?: string; to?: string; limit?: number; offset?: number }) {
   const clauses = [eq(transactions.userId, userId)];
   if (filters.type && ["expense", "income", "transfer"].includes(filters.type)) clauses.push(eq(transactions.type, filters.type));
   if (filters.category) clauses.push(eq(transactions.category, filters.category));
@@ -35,7 +36,7 @@ export async function listTransactions(userId: string, filters: { q?: string; ty
     const pattern = `%${filters.q.trim().replace(/^#/, "")}%`;
     clauses.push(or(ilike(transactions.description, pattern), ilike(transactions.merchant, pattern), ilike(transactions.notes, pattern), exists(db.select({ id: transactionTags.tagId }).from(transactionTags).innerJoin(tags, eq(tags.id, transactionTags.tagId)).where(and(eq(transactionTags.transactionId, transactions.id), eq(tags.userId, userId), ilike(tags.name, pattern)))))!);
   }
-  const rows = await db.select().from(transactions).where(and(...clauses)).orderBy(desc(transactions.transactionDate), desc(transactions.createdAt)).limit(300);
+  const rows = await db.select().from(transactions).where(and(...clauses)).orderBy(desc(transactions.transactionDate), desc(transactions.createdAt), desc(transactions.id)).limit(filters.limit ?? 300).offset(filters.offset ?? 0);
   const ids = rows.map((row) => row.id);
   if (!ids.length) return rows;
   const [splitRows, tagRows] = await Promise.all([
@@ -49,14 +50,29 @@ export async function saveTransaction(userId: string, input: TransactionInput, i
   if (input.accountId && !(await ownedAccount(userId, input.accountId))) return { error: "account" as const };
   if (input.type === "transfer" && (!input.toAccountId || !input.accountId || input.accountId === input.toAccountId)) return { error: "transfer" as const };
   if (input.toAccountId && !(await ownedAccount(userId, input.toAccountId))) return { error: "account" as const };
-  const splitTotal = (input.splits ?? []).reduce((sum, part) => sum + part.amount, 0);
-  if (input.splits?.length && Math.abs(splitTotal - input.amount) > 0.01) return { error: "split" as const };
+  if (input.splits?.length && !splitsMatchAmount(input.splits, input.amount)) return { error: "split" as const };
+  if (id && input.splits === undefined) {
+    // Omitted splits are kept on edit, so they must still add up to the (possibly new) amount.
+    const existingSplits = await db.select({ amount: transactionSplits.amount }).from(transactionSplits).innerJoin(transactions, eq(transactions.id, transactionSplits.transactionId)).where(and(eq(transactionSplits.transactionId, id), eq(transactions.userId, userId)));
+    if (existingSplits.length && !splitsMatchAmount(existingSplits, input.amount)) return { error: "split" as const };
+  }
 
-  const [category] = await db.select({ id: categories.id }).from(categories).where(and(eq(categories.userId, userId), eq(categories.name, input.category))).limit(1);
+  let category: { id: string; name: string } | undefined;
+  if (input.categoryId) {
+    // An explicit id is exact, and its stored name wins over any name sent alongside it.
+    [category] = await db.select({ id: categories.id, name: categories.name }).from(categories)
+      .where(and(eq(categories.id, input.categoryId), eq(categories.userId, userId), input.type === "transfer" ? undefined : eq(categories.type, input.type)));
+    if (!category) return { error: "category" as const };
+  } else {
+    // Callers that only know a name: names are only unique per parent, so match the type and prefer a top-level category, then the oldest.
+    [category] = await db.select({ id: categories.id, name: categories.name }).from(categories)
+      .where(and(eq(categories.userId, userId), eq(categories.name, input.category), input.type === "transfer" ? undefined : eq(categories.type, input.type)))
+      .orderBy(sql`${categories.parentId} is not null`, categories.createdAt, categories.id).limit(1);
+  }
   const saved = await db.transaction(async (tx) => {
     const values = {
       userId, type: input.type, description: input.description, merchant: input.merchant || null,
-      categoryId: category?.id ?? null, category: input.category, amount: input.amount.toFixed(2),
+      categoryId: category?.id ?? null, category: category?.name ?? input.category, amount: input.amount.toFixed(2),
       transactionDate: input.transactionDate, notes: input.notes || null, paymentMethod: input.paymentMethod,
       accountId: input.accountId || null, toAccountId: input.type === "transfer" ? input.toAccountId! : null,
       updatedAt: new Date(),
@@ -67,11 +83,11 @@ export async function saveTransaction(userId: string, input: TransactionInput, i
       if (!owned) return null;
       [item] = await tx.update(transactions).set(values).where(eq(transactions.id, id)).returning();
       if (input.splits !== undefined) await tx.delete(transactionSplits).where(eq(transactionSplits.transactionId, id));
-      if (input.tags.length) await tx.delete(transactionTags).where(eq(transactionTags.transactionId, id));
+      if (input.tags !== undefined) await tx.delete(transactionTags).where(eq(transactionTags.transactionId, id));
     } else [item] = await tx.insert(transactions).values(values).returning();
     if (!item) return null;
     if (input.splits?.length) await tx.insert(transactionSplits).values(input.splits.map((part) => ({ transactionId: item.id, label: part.label, amount: part.amount.toFixed(2), isMine: part.isMine })));
-    if (input.tags.length) {
+    if (input.tags?.length) {
       const names = [...new Set(input.tags.map((tag) => tag.toLowerCase().replace(/^#/, "")))];
       await tx.insert(tags).values(names.map((name) => ({ userId, name }))).onConflictDoNothing();
       const ownedNames = await tx.select({ id: tags.id, name: tags.name }).from(tags).where(eq(tags.userId, userId));
@@ -102,23 +118,7 @@ export async function createAccount(userId: string, input: { name: string; type:
 export async function listAccounts(userId: string) {
   const rows = await db.select().from(accounts).where(eq(accounts.userId, userId)).orderBy(accounts.createdAt);
   const movements = await db.select({ accountId: transactions.accountId, toAccountId: transactions.toAccountId, type: transactions.type, amount: transactions.amount }).from(transactions).where(eq(transactions.userId, userId));
-  return rows.map((account) => {
-    let balance = Number(account.openingBalance);
-    for (const row of movements) {
-      const amount = Number(row.amount);
-      if (account.kind === "liability") {
-        if (row.accountId === account.id && row.type === "expense") balance += amount;
-        if (row.accountId === account.id && row.type === "transfer") balance -= amount;
-        if (row.toAccountId === account.id && row.type === "transfer") balance -= amount;
-      } else {
-        if (row.accountId === account.id && row.type === "expense") balance -= amount;
-        if (row.accountId === account.id && row.type === "income") balance += amount;
-        if (row.accountId === account.id && row.type === "transfer") balance -= amount;
-        if (row.toAccountId === account.id && row.type === "transfer") balance += amount;
-      }
-    }
-    return { ...account, balance };
-  });
+  return rows.map((account) => ({ ...account, balance: accountBalance(account, movements) }));
 }
 
 export async function createCategory(userId: string, input: { name: string; type: string; parentId?: string | null }) {
@@ -188,8 +188,7 @@ export async function evaluateSmartAlerts(userId: string, latest?: typeof transa
     const avg = older.length ? older.reduce((sum, item) => sum + Number(item.amount), 0) / older.length : 0;
     if (avg > 0 && Number(latest.amount) > avg * 3) await db.insert(alerts).values({ userId, key: `unusual:${latest.id}`, kind: "unusual-spending", message: `${latest.description} is unusually large compared with your recent expenses.` }).onConflictDoNothing();
   }
-  const prevDate = new Date(); prevDate.setUTCMonth(prevDate.getUTCMonth() - 1);
-  const prevStart = `${prevDate.toISOString().slice(0, 7)}-01`;
+  const prevStart = previousMonthStart(currentStart);
   const prevEnd = currentStart;
   const [currentRows, priorRows] = await Promise.all([
     db.select({ category: transactions.category, amount: sql<string>`sum(${transactions.amount})` }).from(transactions).where(and(eq(transactions.userId, userId), eq(transactions.type, "expense"), gte(transactions.transactionDate, currentStart), lt(transactions.transactionDate, tomorrow))).groupBy(transactions.category),

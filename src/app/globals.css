@@ -27,7 +27,7 @@
 .mobile-menu-toggle{display:none;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid #e9ece6;border-radius:8px;background:#fff;color:#526752;cursor:pointer}
 .view-overview .core-tools,.view-overview .scheduled-tools,.view-overview .add-panel{display:none}
 .modal-backdrop{position:fixed;inset:0;z-index:40;border:0;background:#19241fcc;backdrop-filter:blur(2px);cursor:default}
-.view-overview.add-modal-open .add-panel{position:fixed;top:50%;left:50%;z-index:41;display:block;width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;margin:0;padding:20px;box-shadow:0 24px 80px #18251d55;transform:translate(-50%,-50%)}
+.dashboard-app.add-modal-open .add-panel{position:fixed;top:50%;left:50%;z-index:41;display:block;width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;margin:0;padding:20px;box-shadow:0 24px 80px #18251d55;transform:translate(-50%,-50%)}
 .add-panel .modal-close{flex:none;width:32px;height:32px}
 .add-modal-open .add-panel .add-circle{display:none}
 .view-overview .category-panel .currency-setting,.view-overview .category-panel>.compact-form{display:none}
@@ -70,6 +70,24 @@
 .profile-description{margin:0;font-size:10px;line-height:1.6}
 .form-success{margin:-7px 0 17px;padding:11px 12px;border:1px solid #dce8d9;border-radius:7px;background:#f1f6ef;color:#547357;font-size:11px;line-height:1.5}
 .profile-export-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.managed-list{display:grid;gap:9px;margin-top:18px}
+.managed-list>h3{margin:0;color:#7b877c;font-size:10px;font-weight:700;letter-spacing:.4px}
+.managed-item{padding:10px 0;border-top:1px solid #f0f2ef}
+.managed-item-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.managed-item-heading>span{display:grid;min-width:0;gap:4px}
+.managed-item-heading b{overflow:hidden;font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+.managed-item-heading small{color:#929b92;font-size:9px;line-height:1.4}
+.managed-finance-row>div,.managed-budget-row>div{display:grid;justify-items:end;gap:7px;min-width:0}
+.manage-details{min-width:62px;color:#58735c;font-size:9px}
+.manage-details>summary{width:max-content;cursor:pointer;list-style:none;text-decoration:underline;text-underline-offset:2px}
+.manage-details>summary::-webkit-details-marker{display:none}
+.manage-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;width:min(420px,calc(100vw - 80px));margin-top:10px;padding:12px;border:1px solid #e9ece6;border-radius:8px;background:#fbfcfa}
+.manage-form label{display:grid;min-width:0;gap:5px;color:#626d63;font-size:9px;font-weight:600}
+.manage-form input,.manage-form select{width:100%;min-width:0;height:33px;padding:0 8px;border:1px solid #e5e9e3;border-radius:6px;background:#fff;color:#4f5c50;font:inherit;font-size:10px}
+.manage-form .button,.manage-form .text-danger{justify-self:start;align-self:center}
+.managed-finance-row>div>.manage-details,.managed-budget-row>div>.manage-details{width:100%}
+.managed-finance-row .manage-form,.managed-budget-row .manage-form{justify-self:end}
+.settings-category-form+.managed-list{padding-top:2px}
 .profile-export-actions .button{min-height:34px}
 .button-light{border:1px solid #e4e9e2;background:#fff;color:#526753}
 .button-light:hover{background:#f2f5f0}
@@ -122,6 +140,9 @@
   .settings-page{grid-template-columns:1fr}
   .profile-page{grid-template-columns:1fr}
   .profile-password-pair{grid-template-columns:1fr}
+  .manage-form{grid-template-columns:1fr;width:min(100%,420px)}
+  .managed-item-heading{align-items:flex-start}
+  .managed-finance-row>div,.managed-budget-row>div{max-width:58%}
   .sidebar-profile-link{max-width:min(46vw,205px)}
   .sidebar .user-meta{display:grid;gap:2px}
   .sidebar .user-meta b{font-size:9px}
@@ -131,3 +152,60 @@
   .settings-currency-form>div{align-items:stretch;flex-direction:column}
   .settings-currency-form select{max-width:none}
 }
+.transaction-export{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;text-decoration:none}
+.import-panel{padding:20px}
+.view-transactions .add-panel{display:none}
+.view-transactions .transactions-panel{grid-column:1/-1}
+.header-actions{display:flex;flex-wrap:wrap;gap:8px}
+.import-modal{position:fixed;top:50%;left:50%;z-index:41;width:min(920px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;border-radius:10px;box-shadow:0 24px 80px #18251d55;transform:translate(-50%,-50%)}
+.import-modal[hidden]{display:none}
+.import-panel .modal-close{flex:none;width:32px;height:32px}
+.import-file-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.import-mapping{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:10px}
+.import-mapping label{display:grid;gap:5px;color:#58635a;font-size:10px}
+.import-mapping select,.import-table select{min-width:0;height:32px;padding:0 8px;border:1px solid #e9ece6;border-radius:6px;background:#fff;color:#58635a;font-size:10px}
+.import-table-wrap{max-height:420px;margin-top:12px;overflow:auto;border:1px solid #f0f2ef;border-radius:8px}
+.import-table{width:100%;border-collapse:collapse;font-size:11px}
+.import-table th{position:sticky;top:0;padding:8px;background:#f7f8f5;color:#708071;font-weight:600;text-align:left}
+.import-table td{padding:7px 8px;border-top:1px solid #f0f2ef;vertical-align:top}
+.import-table td:last-child,.import-table th:last-child{text-align:right;white-space:nowrap}
+.import-table td small{display:block}
+.import-row-off{opacity:.5}
+.import-duplicate{color:#b26b2a}
+.import-income{color:#2f7a45}
+.transactions-more{display:flex;justify-content:center;padding:12px 0}
+@media(max-width:760px){
+  .dash-header .header-actions{grid-column:3;grid-row:1;flex-wrap:nowrap;gap:6px}
+  .dash-header .header-actions .add-top{white-space:nowrap}
+}
+@media(max-width:420px){
+  .dash-header .header-actions{grid-column:1/-1;grid-row:2;justify-content:flex-end}
+}
+.import-password{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;margin-top:10px}
+.import-password label{display:grid;gap:5px;color:#58635a;font-size:10px}
+.import-password input{height:32px;min-width:200px;padding:0 8px;border:1px solid #e9ece6;border-radius:6px;font-size:11px}
+.import-password small{flex-basis:100%}
+.assistant-modal{position:fixed;top:50%;left:50%;z-index:41;width:min(620px,calc(100vw - 32px));max-height:calc(100vh - 32px);border-radius:10px;box-shadow:0 24px 80px #18251d55;transform:translate(-50%,-50%)}
+.assistant-modal[hidden]{display:none}
+.assistant-panel{display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 32px);padding:20px}
+.assistant-actions{display:flex;align-items:center;gap:8px}
+.assistant-actions .button{display:inline-flex;align-items:center;gap:5px}
+.assistant-panel .modal-close{flex:none;width:32px;height:32px}
+.assistant-log{display:flex;flex-direction:column;gap:10px;min-height:220px;max-height:52vh;overflow-y:auto;padding:4px 2px}
+.assistant-empty{display:grid;justify-items:center;gap:6px;margin:auto;color:#708071;font-size:11px;text-align:center}
+.assistant-empty p{margin:0}
+.assistant-empty ul{margin:4px 0 0;padding:0;list-style:none;display:grid;gap:4px;font-style:italic}
+.assistant-message{max-width:88%;padding:9px 11px;border-radius:10px;font-size:12px;line-height:1.45}
+.assistant-message p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.assistant-user{align-self:flex-end;background:#1f3a2b;color:#fff}
+.assistant-assistant{align-self:flex-start;background:#f3f5f1;color:#2b352e}
+.assistant-error{background:#fbeeee;color:#8a2e2e}
+.assistant-tx{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;margin-top:8px;padding:8px 10px;border:1px solid #e3e8e0;border-radius:8px;background:#fff}
+.assistant-tx span{display:grid;gap:2px;min-width:0}
+.assistant-tx small{color:#708071}
+.assistant-tx-undone{opacity:.5}
+.assistant-tx-undone b{text-decoration:line-through}
+.assistant-form{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}
+.assistant-form textarea{min-width:0;padding:9px 10px;border:1px solid #e9ece6;border-radius:8px;font:inherit;font-size:12px;resize:vertical}
+.assistant-form .button{display:inline-flex;align-items:center;gap:5px;height:36px}
+@media(max-width:420px){.assistant-form{grid-template-columns:1fr}.assistant-message{max-width:100%}}
